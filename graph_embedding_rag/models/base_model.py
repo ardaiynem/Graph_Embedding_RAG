@@ -5,7 +5,11 @@ class BaseGraphEmbeddingModel(ABC):
         self.embedding_dim = embedding_dim
 
     @abstractmethod
-    def create_model(self, edge_index, device):
+    def process_graph(self, graph, device):
+        pass
+
+    @abstractmethod
+    def create_model(self, device):
         pass
 
     @abstractmethod
@@ -13,5 +17,5 @@ class BaseGraphEmbeddingModel(ABC):
         pass
 
     @abstractmethod
-    def generate_embeddings(self, model, device, graph):
+    def generate_embeddings(self, model, device):
         pass

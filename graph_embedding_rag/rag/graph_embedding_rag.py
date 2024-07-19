@@ -11,6 +11,7 @@ import torch
 from tqdm import tqdm
 import json
 
+
 class GraphEmbeddingRAG:
     def __init__(
         self,
@@ -50,7 +51,9 @@ class GraphEmbeddingRAG:
         Settings.llm = self.llm
 
     def fetch_graph_data(self):
-        driver = GraphDatabase.driver(self.neo4j_uri, auth=(self.neo4j_user, self.neo4j_password))
+        driver = GraphDatabase.driver(
+            self.neo4j_uri, auth=(self.neo4j_user, self.neo4j_password)
+        )
         G = nx.Graph()
 
         with driver.session() as session:
@@ -98,15 +101,13 @@ class GraphEmbeddingRAG:
         if self.graph is None:
             raise ValueError("Graph data not fetched. Call fetch_graph_data() first.")
 
-        edge_index = torch.tensor(list(self.graph.edges())).t().contiguous()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {device}")
 
-        model = self.embedding_model.create_model(edge_index, device)
+        self.embedding_model.process_graph(self.graph, device)
+        model = self.embedding_model.create_model(device)
         self.embedding_model.train_model(model, device)
-        self.embeddings = self.embedding_model.generate_embeddings(
-            model, device, self.graph
-        )
+        self.embeddings = self.embedding_model.generate_embeddings(model, device)
 
     def add_to_vector_store(self):
         if self.graph is None or self.embeddings is None:
@@ -155,4 +156,4 @@ class GraphEmbeddingRAG:
 
     def run_prompt(self, prompt):
         response = self.query_engine.query(prompt)
-        print('Response:', response)
+        print("Response:", response)

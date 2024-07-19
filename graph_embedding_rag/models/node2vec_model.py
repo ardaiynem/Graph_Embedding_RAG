@@ -4,9 +4,13 @@ from torch_geometric.nn import Node2Vec
 from tqdm import tqdm
 
 class Node2VecModel(BaseGraphEmbeddingModel):
-    def create_model(self, edge_index, device):
+    def process_graph(self, graph, device):
+        self.edge_index = torch.tensor(list(graph.edges())).t().contiguous()
+        self.graph = graph
+
+    def create_model(self, device):
         return Node2Vec(
-            edge_index,
+            self.edge_index,
             embedding_dim=self.embedding_dim,
             walk_length=10,
             context_size=5,
@@ -32,10 +36,10 @@ class Node2VecModel(BaseGraphEmbeddingModel):
                 total_loss += loss.item()
             print(f"Epoch {epoch + 1}, Loss: {total_loss / len(loader)}")
 
-    def generate_embeddings(self, model, device, graph):
+    def generate_embeddings(self, model, device):
         model.eval()
         embeddings = {}
         with torch.no_grad():
-            for i, node in enumerate(graph.nodes()):
+            for i, node in enumerate(self.graph.nodes()):
                 embeddings[node] = model(torch.tensor([i]).to(device)).cpu().numpy()[0]
         return embeddings

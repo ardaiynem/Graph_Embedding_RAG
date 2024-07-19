@@ -1,53 +1,65 @@
 from .base_model import BaseGraphEmbeddingModel
 import torch
-from torch_geometric.nn import DeepGraphInfomax, GCNConv
+import torch.nn.functional as F
+from torch_geometric.nn import DeepGraphInfomax
+from torch_geometric.nn import GCNConv
+from tqdm import tqdm
+
+class GCNEncoder(torch.nn.Module):
+    def __init__(self, input_dim, hidden_dim):
+        super(GCNEncoder, self).__init__()
+        self.conv1 = GCNConv(input_dim, hidden_dim)
+        self.conv2 = GCNConv(hidden_dim, hidden_dim)
+
+    def forward(self, x, edge_index):
+        x = F.relu(self.conv1(x, edge_index))
+        x = self.conv2(x, edge_index)
+        return x
 
 class DeepGraphInfomaxModel(BaseGraphEmbeddingModel):
-    def create_model(self, edge_index, device):
-        # This is a simplified example and might need adjustment
-        from torch_geometric.nn import GCNConv
+    def process_graph(self, graph, device):
+        self.edge_index = torch.tensor(list(graph.edges())).t().contiguous().to(device)
+        self.features = torch.eye(graph.number_of_nodes()).to(device)  # One-hot encoding
 
-        class Encoder(torch.nn.Module):
-            def __init__(self, in_channels, hidden_channels):
-                super().__init__()
-                self.conv = GCNConv(in_channels, hidden_channels, cached=True)
-                self.prelu = torch.nn.PReLU(hidden_channels)
-
-            def forward(self, x, edge_index):
-                return self.prelu(self.conv(x, edge_index))
-
-        num_features = edge_index.max().item() + 1  # Number of nodes
-        encoder = Encoder(num_features, self.embedding_dim)
+    def create_model(self, device):
+        input_dim = self.features.shape[1]
         return DeepGraphInfomax(
             hidden_channels=self.embedding_dim,
-            encoder=encoder,
+            encoder=GCNEncoder(input_dim, self.embedding_dim),
             summary=lambda z, *args, **kwargs: torch.sigmoid(z.mean(dim=0)),
-            corruption=lambda x, *args, **kwargs: x + torch.randn_like(x),
+            corruption=lambda x, edge_index: (x[torch.randperm(x.size(0))], edge_index)
         ).to(device)
 
     def train_model(self, model, device):
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-        x = torch.randn((model.encoder.conv.in_channels, model.hidden_channels)).to(
-            device
-        )
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
         model.train()
-        for epoch in range(10):
+        for epoch in range(200):  # Typical DGI training can take more epochs
             optimizer.zero_grad()
-            pos_z, neg_z, summary = model(x, model.encoder.conv.cached_edge_index)
+            pos_z, neg_z, summary = model(self.features, self.edge_index)
             loss = model.loss(pos_z, neg_z, summary)
             loss.backward()
             optimizer.step()
-            print(f"Epoch: {epoch:03d}, Loss: {loss.item():.4f}")
+            if epoch % 10 == 0:
+                print(f"Epoch {epoch + 1}, Loss: {loss.item()}")
 
-    def generate_embeddings(self, model, device, graph):
+    def generate_embeddings(self, model, device):
         model.eval()
-        embeddings = {}
         with torch.no_grad():
-            x = torch.randn((model.encoder.conv.in_channels, model.hidden_channels)).to(
-                device
-            )
-            z, _, _ = model(x, model.encoder.conv.cached_edge_index)
-            for i, node in enumerate(graph.nodes()):
-                embeddings[node] = z[i].cpu().numpy()
+            z, _, _ = model(self.features, self.edge_index)
+        embeddings = {node: z[i].cpu().numpy() for i, node in enumerate(range(z.size(0)))}
         return embeddings
+
+# This class can be called similarly to Node2VecModel
+# For example:
+def create_embeddings(self):
+    if self.graph is None:
+        raise ValueError("Graph data not fetched. Call fetch_graph_data() first.")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    self.embedding_model.process_graph(self.graph, device)
+    model = self.embedding_model.create_model(device)
+    self.embedding_model.train_model(model, device)
+    self.embeddings = self.embedding_model.generate_embeddings(model, device)
