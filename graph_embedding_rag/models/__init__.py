@@ -1,0 +1,2 @@
+from .node2vec_model import Node2VecModel
+from .deepgraphinfomax_model import DeepGraphInfomaxModel

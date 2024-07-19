@@ -1,0 +1,10 @@
+llama_index==0.10.55
+llama-index-graph-stores-neo4j==0.2.7
+llama-index-vector-stores-neo4jvector==0.1.6
+neo4j==5.22.0
+networkx==3.2.1
+numpy==2.0.0
+torch==2.0.0
+torch_geometric==2.5.3
+torch_cluster==1.6.3
+tqdm==4.66.4
