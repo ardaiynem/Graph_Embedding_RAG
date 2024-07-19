@@ -49,17 +49,3 @@ class DeepGraphInfomaxModel(BaseGraphEmbeddingModel):
             z, _, _ = model(self.features, self.edge_index)
         embeddings = {node: z[i].cpu().numpy() for i, node in enumerate(range(z.size(0)))}
         return embeddings
-
-# This class can be called similarly to Node2VecModel
-# For example:
-def create_embeddings(self):
-    if self.graph is None:
-        raise ValueError("Graph data not fetched. Call fetch_graph_data() first.")
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-
-    self.embedding_model.process_graph(self.graph, device)
-    model = self.embedding_model.create_model(device)
-    self.embedding_model.train_model(model, device)
-    self.embeddings = self.embedding_model.generate_embeddings(model, device)
